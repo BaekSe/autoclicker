@@ -1,0 +1,10 @@
+[package]
+name = "autoclicker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.31"
+enigo = "0.5"
+device_query = "3"
+crossbeam-channel = "0.5"
