@@ -1,5 +1,7 @@
 use crossbeam_channel::Receiver;
 use eframe::{egui, App, Frame, NativeOptions};
+use tray_icon::{menu::{Menu, MenuItem, MenuEvent}, TrayIconBuilder, Icon};
+use std::time::Duration;
 
 mod auto_clicker;
 use auto_clicker::{AutoClicker, Config, Rect};
@@ -33,6 +35,35 @@ impl AutoClickerApp {
         self.clicker.update_config(cfg);
         self.clicker.toggle();
     }
+
+    fn capture_region(&mut self) {
+        use device_query::{DeviceQuery, DeviceState};
+        let device = DeviceState::new();
+        println!("Drag to select region with left mouse button");
+        // wait for press
+        loop {
+            let m = device.get_mouse();
+            if *m.button_pressed.get(1).unwrap_or(&false) {
+                let start = m.coords;
+                // wait for release
+                loop {
+                    let m = device.get_mouse();
+                    if !*m.button_pressed.get(1).unwrap_or(&false) {
+                        let end = m.coords;
+                        self.region = Rect {
+                            x1: start.0,
+                            y1: start.1,
+                            x2: end.0,
+                            y2: end.1,
+                        };
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
 }
 
 impl App for AutoClickerApp {
@@ -52,6 +83,9 @@ impl App for AutoClickerApp {
                 ui.add(egui::DragValue::new(&mut self.region.x2));
                 ui.add(egui::DragValue::new(&mut self.region.y2));
             });
+            if ui.button("Set Region by Drag").clicked() {
+                self.capture_region();
+            }
             let label = if self.clicker.is_running() { "Stop (Cmd+D)" } else { "Start (Cmd+D)" };
             if ui.button(label).clicked() {
                 self.toggle();
@@ -75,6 +109,26 @@ fn main() -> eframe::Result<()> {
                 thread::sleep(Duration::from_millis(300));
             }
             thread::sleep(Duration::from_millis(50));
+        }
+    });
+
+    // tray icon with quit menu
+    let mut tray_menu = Menu::new();
+    let quit_item = MenuItem::new("Quit", true, None);
+    let _ = tray_menu.append(&quit_item);
+    let icon = Icon::from_rgba(vec![0, 0, 0, 0], 1, 1).unwrap();
+    let _tray = TrayIconBuilder::new()
+        .with_menu(Box::new(tray_menu))
+        .with_tooltip("AutoClicker")
+        .with_icon(icon)
+        .build()
+        .unwrap();
+    std::thread::spawn(move || {
+        let menu_rx = MenuEvent::receiver();
+        while let Ok(event) = menu_rx.recv() {
+            if event.id == quit_item.id() {
+                std::process::exit(0);
+            }
         }
     });
 
