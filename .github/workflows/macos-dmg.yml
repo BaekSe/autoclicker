@@ -11,9 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Rust
-        uses: actions/setup-rust@v2
+        uses: actions-rs/toolchain@v1
         with:
-          rust-version: stable
+          toolchain: stable
+          override: true
       - name: Install tooling
         run: |
           brew install create-dmg
@@ -24,7 +25,7 @@ jobs:
         run: cargo bundle --release
       - name: Create DMG
         run: |
-          create-dmg --overwrite target/release/bundle/osx/AutoClicker.app
+          create-dmg target/release/bundle/osx/AutoClicker.app AutoClicker.dmg
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:

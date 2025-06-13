@@ -25,7 +25,7 @@ To create a macOS DMG locally you can install `cargo-bundle` and `create-dmg`:
 brew install create-dmg
 cargo install cargo-bundle
 cargo bundle --release
-create-dmg target/release/bundle/osx/AutoClicker.app
+create-dmg target/release/bundle/osx/AutoClicker.app AutoClicker.dmg
 ```
 
 A GitHub Actions workflow builds the DMG automatically whenever a tag starting with `v` is pushed.
