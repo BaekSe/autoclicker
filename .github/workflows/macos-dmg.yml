@@ -1,0 +1,33 @@
+name: Build macOS DMG
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Rust
+        uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+      - name: Install tooling
+        run: |
+          brew install create-dmg
+          cargo install cargo-bundle
+      - name: Build release
+        run: cargo build --release
+      - name: Bundle app
+        run: cargo bundle --release
+      - name: Create DMG
+        run: |
+          create-dmg --overwrite target/release/bundle/osx/AutoClicker.app
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: autoclicker-dmg
+          path: "*.dmg"
+
