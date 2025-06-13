@@ -25,7 +25,7 @@ jobs:
         run: cargo bundle --release
       - name: Create DMG
         run: |
-          create-dmg --overwrite target/release/bundle/osx/AutoClicker.app
+          create-dmg target/release/bundle/osx/AutoClicker.app
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
