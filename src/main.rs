@@ -1,7 +1,12 @@
 use crossbeam_channel::Receiver;
 use eframe::{egui, App, Frame, NativeOptions};
-use tray_icon::{menu::{Menu, MenuItem, MenuEvent}, TrayIconBuilder, Icon};
 use std::time::Duration;
+
+#[cfg(target_os = "macos")]
+use tray_icon::{menu::{Menu, MenuItem, MenuEvent}, TrayIconBuilder, Icon};
+
+#[cfg(not(target_os = "macos"))]
+compile_error!("This crate currently only supports macOS targets.");
 
 mod auto_clicker;
 use auto_clicker::{AutoClicker, Config, Rect};
@@ -112,25 +117,28 @@ fn main() -> eframe::Result<()> {
         }
     });
 
-    // tray icon with quit menu
-    let mut tray_menu = Menu::new();
-    let quit_item = MenuItem::new("Quit", true, None);
-    let _ = tray_menu.append(&quit_item);
-    let icon = Icon::from_rgba(vec![0, 0, 0, 0], 1, 1).unwrap();
-    let _tray = TrayIconBuilder::new()
-        .with_menu(Box::new(tray_menu))
-        .with_tooltip("AutoClicker")
-        .with_icon(icon)
-        .build()
-        .unwrap();
-    std::thread::spawn(move || {
-        let menu_rx = MenuEvent::receiver();
-        while let Ok(event) = menu_rx.recv() {
-            if event.id == quit_item.id() {
-                std::process::exit(0);
+    // tray icon with quit menu (only on macOS)
+    #[cfg(target_os = "macos")]
+    {
+        let mut tray_menu = Menu::new();
+        let quit_item = MenuItem::new("Quit", true, None);
+        let _ = tray_menu.append(&quit_item);
+        let icon = Icon::from_rgba(vec![0, 0, 0, 0], 1, 1).unwrap();
+        let _tray = TrayIconBuilder::new()
+            .with_menu(Box::new(tray_menu))
+            .with_tooltip("AutoClicker")
+            .with_icon(icon)
+            .build()
+            .unwrap();
+        std::thread::spawn(move || {
+            let menu_rx = MenuEvent::receiver();
+            while let Ok(event) = menu_rx.recv() {
+                if event.id == quit_item.id() {
+                    std::process::exit(0);
+                }
             }
-        }
-    });
+        });
+    }
 
     let app = AutoClickerApp::new(rx);
     let opts = NativeOptions::default();
