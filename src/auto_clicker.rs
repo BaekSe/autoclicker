@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::time::Duration;
-use enigo::{Button, Direction, Enigo, Mouse, Settings};
+use enigo::{Button, Direction, Enigo, Mouse, Settings, NewConError};
 use device_query::{DeviceQuery, DeviceState};
 
 #[derive(Clone)]
@@ -51,19 +51,29 @@ impl AutoClicker {
     pub fn toggle(&self) {
         if self.is_running() {
             self.stop();
-        } else {
-            self.start();
+        } else if let Err(e) = self.start() {
+            eprintln!("Failed to start AutoClicker: {e}");
         }
     }
 
-    pub fn start(&self) {
+    pub fn start(&self) -> Result<(), NewConError> {
         if self.running.swap(true, Ordering::SeqCst) {
-            return; // already running
+            return Ok(()); // already running
         }
+
         let running = self.running.clone();
         let cfg = self.config.lock().unwrap().clone();
+
+        let enigo = match Enigo::new(&Settings::default()) {
+            Ok(e) => e,
+            Err(e) => {
+                self.running.store(false, Ordering::SeqCst);
+                return Err(e);
+            }
+        };
+
         thread::spawn(move || {
-            let mut enigo = Enigo::new(&Settings::default()).unwrap();
+            let mut enigo = enigo;
             let device = DeviceState::new();
             let mut remaining = if cfg.repeat == 0 { None } else { Some(cfg.repeat) };
             while running.load(Ordering::SeqCst) {
@@ -86,6 +96,8 @@ impl AutoClicker {
                 thread::sleep(Duration::from_secs_f32(interval));
             }
         });
+
+        Ok(())
     }
 
     pub fn stop(&self) {
