@@ -91,17 +91,21 @@ impl AutoClicker {
     }
 
     pub fn start(&self) {
-        let _ = self.start_with_env(RealEnv::new());
+        let _ = self.start_with_env(|| RealEnv::new());
     }
 
-    pub fn start_with_env<E: ClickEnv + Send + 'static>(&self, env: E) -> Option<thread::JoinHandle<()>> {
+    pub fn start_with_env<F, E>(&self, env_builder: F) -> Option<thread::JoinHandle<()>>
+    where
+        F: FnOnce() -> E + Send + 'static,
+        E: ClickEnv + 'static,
+    {
         if self.running.swap(true, Ordering::SeqCst) {
             return None; // already running
         }
         let running = self.running.clone();
         let cfg = self.config.lock().unwrap().clone();
         Some(thread::spawn(move || {
-            let mut env = env;
+            let mut env = env_builder();
             Self::run_loop(cfg, running, &mut env);
         }))
     }
@@ -109,6 +113,12 @@ impl AutoClicker {
     pub fn run_loop<E: ClickEnv>(cfg: Config, running: Arc<AtomicBool>, env: &mut E) {
         let mut remaining = if cfg.repeat == 0 { None } else { Some(cfg.repeat) };
         while running.load(Ordering::SeqCst) {
+            if let Some(rem) = remaining.as_ref() {
+                if *rem == 0 {
+                    running.store(false, Ordering::SeqCst);
+                    break;
+                }
+            }
             let pos = env.mouse_coords();
             if let Some(region) = &cfg.region {
                 if !region.contains(pos) {

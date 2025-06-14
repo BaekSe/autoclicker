@@ -3,8 +3,7 @@ use eframe::{egui, App, Frame, NativeOptions};
 use tray_icon::{menu::{Menu, MenuItem, MenuEvent}, TrayIconBuilder, Icon};
 use std::time::Duration;
 
-mod auto_clicker;
-use auto_clicker::{AutoClicker, Config, Rect};
+use autoclicker::auto_clicker::{AutoClicker, Config, Rect};
 
 pub struct AutoClickerApp {
     clicker: AutoClicker,
