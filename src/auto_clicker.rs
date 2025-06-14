@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex, atomic::{AtomicBool, Ordering}};
 use std::thread;
 use std::time::Duration;
-use enigo::{Button, Direction, Enigo, Mouse, Settings};
+use enigo::{Button, Direction, Enigo, Mouse, Settings, NewConError};
 use device_query::{DeviceQuery, DeviceState};
 
 pub trait ClickEnv {
@@ -16,11 +16,11 @@ struct RealEnv {
 }
 
 impl RealEnv {
-    fn new() -> Self {
-        Self {
-            enigo: Enigo::new(&Settings::default()).unwrap(),
+    fn new() -> Result<Self, NewConError> {
+        Ok(Self {
+            enigo: Enigo::new(&Settings::default())?,
             device: DeviceState::new(),
-        }
+        })
     }
 }
 
@@ -96,16 +96,24 @@ impl AutoClicker {
 
     pub fn start_with_env<F, E>(&self, env_builder: F) -> Option<thread::JoinHandle<()>>
     where
-        F: FnOnce() -> E + Send + 'static,
+        F: FnOnce() -> Result<E, NewConError> + Send + 'static,
         E: ClickEnv + 'static,
     {
         if self.running.swap(true, Ordering::SeqCst) {
             return None; // already running
         }
+
         let running = self.running.clone();
         let cfg = self.config.lock().unwrap().clone();
         Some(thread::spawn(move || {
-            let mut env = env_builder();
+            let mut env = match env_builder() {
+                Ok(env) => env,
+                Err(e) => {
+                    eprintln!("Failed to start AutoClicker: {e}");
+                    running.store(false, Ordering::SeqCst);
+                    return;
+                }
+            };
             Self::run_loop(cfg, running, &mut env);
         }))
     }
